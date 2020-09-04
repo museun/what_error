@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use winapi::{
     shared::minwindef::{HLOCAL, LPCVOID},
     shared::ntdef::{LANG_ENGLISH, MAKELANGID, SUBLANG_DEFAULT},
@@ -117,7 +119,7 @@ fn format_error(code: i32) -> String {
         return "unknown".to_string();
     }
 
-    let mut msg: LPWSTR = std::ptr::null_mut();
+    let mut msg = MaybeUninit::<LPWSTR>::uninit();
 
     let ret = unsafe {
         FormatMessageW(
@@ -129,7 +131,8 @@ fn format_error(code: i32) -> String {
             module as LPCVOID,
             code as u32,
             MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT) as u32,
-            (&mut msg as *mut LPWSTR) as LPWSTR,
+            msg.as_mut_ptr() as LPWSTR,
+            // (&mut msg as *mut LPWSTR) as LPWSTR,
             0,
             std::ptr::null_mut(),
         )
@@ -140,6 +143,8 @@ fn format_error(code: i32) -> String {
     if ret == 0 {
         return "unknown".to_string();
     }
+
+    let msg = unsafe { msg.assume_init() };
 
     let ret = unsafe { pwstr_to_string(msg) };
     unsafe { LocalFree(msg as HLOCAL) };
